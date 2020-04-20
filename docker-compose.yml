@@ -1,0 +1,91 @@
+version: '3.1'
+services:
+  grafana:
+    image: grafana/grafana
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - 8080:3000
+    environment:
+      - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+    networks:
+      zabbix-frontend:
+      zabbix-backend:
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:alpine-latest 
+    env_file:
+      - .env_db_mysql
+      - .env_zabbix
+    volumes:
+      - zabbix-export:/var/lib/zabbix/export
+    ports:
+      - 10051:10051
+    networks:
+      zabbix-backend:
+    depends_on:
+      - mysql-server
+  mysql-server:
+    image: mariadb:latest
+    command: [--character-set-server=utf8, --collation-server=utf8_bin]
+    volumes:
+     - zabbix-mysql:/var/lib/mysql
+    env_file:
+      - .env_db_mysql
+    networks:
+      zabbix-backend:
+        aliases:
+         - mysql-server
+  zabbix-web-apache-mysql:
+    image: zabbix/zabbix-web-apache-mysql:alpine-4.4-latest
+    ports:
+     - "80:80"
+     - "443:443"
+    env_file:
+     - .env_db_mysql
+     - .env_web
+    user: root
+    depends_on:
+     - mysql-server
+     - zabbix-server
+    networks:
+      zabbix-backend:
+      zabbix-frontend:
+        aliases:
+         - zabbix-frontend
+  zabbix-agent:
+    image: zabbix/zabbix-agent:alpine-4.4-latest
+    environment:
+      - ZBX_SERVER_HOST=zabbix-server
+      - ZBX_HOSTNAME=Zabbix server agent active
+    networks:
+      zabbix-backend:
+    depends_on:
+     - zabbix-server
+  zabbix-tools:
+    build:
+      context: ./zabbix-tools
+    env_file:
+      - ./.env_zabbix_secret
+    environment:
+      - ZABBIX_URL=http://zabbix-frontend
+    volumes:
+      - ./templates:/var/local/zabbix-tools/templates
+      - ./hosts:/var/local/zabbix-tools/hosts
+      - ./hosts_sequence_templates:/var/local/zabbix-tools/hosts_sequence_templates
+    networks:
+      - zabbix-frontend
+    command: [echo, "zabbix-tools nothing to do, bye"]
+
+networks:
+  zabbix-frontend:
+    driver: bridge
+  zabbix-backend:
+    driver: bridge
+
+volumes:
+  zabbix-export:
+    driver: local
+  zabbix-mysql:
+    driver: local
+  grafana-data:
+    driver: local
