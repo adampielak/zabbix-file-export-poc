@@ -20,7 +20,7 @@ sh import_hosts.sh
 echo "Restarting agent so that it picks up configuration"
 docker-compose restart zabbix-agent
 
-echo "Sleeping for 15 seconds so they agent can send some data"
+echo "Sleeping for 20 seconds so they agent can send some data"
 for i in `seq 1 10`; do echo -n .; sleep 1; done
 echo
 
